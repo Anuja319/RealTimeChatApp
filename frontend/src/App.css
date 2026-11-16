@@ -114,3 +114,75 @@ h1 {
   background-color: gray;
   cursor: not-allowed;
 }
+
+/* Username Section */
+
+.username-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.username-section label {
+  font-weight: bold;
+}
+
+.username-section input {
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* Join Button */
+
+.username-section button {
+  padding: 10px;
+  background-color: #198754;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.username-section button:disabled {
+  background-color: gray;
+  cursor: not-allowed;
+}
+
+/* Online Users */
+
+.online-users {
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: #f0fff4;
+  border: 1px solid #c3e6cb;
+  border-radius: 8px;
+}
+
+.online-users h3 {
+  margin-top: 0;
+}
+
+.user-item {
+  display: inline-block;
+  margin: 5px;
+  padding: 8px 12px;
+  background-color: white;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+/* System Notifications */
+
+.system-message {
+  text-align: center;
+  margin: 12px 0;
+  color: #666;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.system-message p {
+  margin: 5px;
+}

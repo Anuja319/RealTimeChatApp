@@ -29,6 +29,9 @@ const io = new Server(server, {
   transports: ["websocket"],
 });
 
+// Store connected users
+const users = new Map();
+
 // Test API route
 app.get("/", (req, res) => {
   res.send("Real-Time Chat Server is Running!");
@@ -36,22 +39,57 @@ app.get("/", (req, res) => {
 
 // Socket.IO connection
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+  console.log("User connected:", socket.id);
 
-  // Receive message from client
+  // Send current online users
+  socket.emit("online_users", Array.from(users.values()));
+
+  // Register user
+  socket.on("join_chat", (username) => {
+    if (users.has(socket.id)) {
+      return;
+    }
+
+    const cleanUsername = String(username || "")
+      .trim()
+      .slice(0, 20);
+
+    if (!cleanUsername) {
+      return;
+    }
+
+    // Store user
+    users.set(socket.id, cleanUsername);
+
+    console.log(`${cleanUsername} joined the chat`);
+
+    // Confirm registration
+    socket.emit("join_success", {
+      username: cleanUsername,
+    });
+
+    // Send updated online users list
+    io.emit("online_users", Array.from(users.values()));
+
+    // Notify other users
+    socket.broadcast.emit("user_notification", {
+      text: `${cleanUsername} joined the chat`,
+    });
+  });
+
+  // Receive message
   socket.on("send_message", (data) => {
-    const username = String(data?.username || "").trim();
+    const username = users.get(socket.id);
     const text = String(data?.text || "").trim();
 
-    // Validate message
     if (!username || !text || text.length > 500) {
       return;
     }
 
     const message = {
       id: `${Date.now()}-${socket.id}`,
-      username: username.slice(0, 20),
-      text: text,
+      username,
+      text,
       time: new Date().toLocaleTimeString(),
     };
 
@@ -63,7 +101,24 @@ io.on("connection", (socket) => {
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    console.log("A user disconnected:", socket.id);
+    const username = users.get(socket.id);
+
+    if (username) {
+      console.log(`${username} disconnected`);
+
+      // Remove disconnected user
+      users.delete(socket.id);
+
+      // Update online users
+      io.emit("online_users", Array.from(users.values()));
+
+      // Notify remaining users
+      io.emit("user_notification", {
+        text: `${username} left the chat`,
+      });
+    }
+
+    console.log("User disconnected:", socket.id);
   });
 });
 

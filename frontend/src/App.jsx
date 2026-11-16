@@ -7,32 +7,57 @@ function App() {
 
   const [username, setUsername] = useState("");
 
+  const [joined, setJoined] = useState(false);
+
   const [message, setMessage] = useState("");
 
   const [messages, setMessages] = useState([]);
 
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
   useEffect(() => {
-    // Handle connection
     const handleConnect = () => {
       console.log("Connected:", socket.id);
       setStatus("Connected");
     };
 
-    // Handle disconnection
     const handleDisconnect = () => {
       console.log("Disconnected");
       setStatus("Disconnected");
+      setJoined(false);
     };
 
-    // Handle connection error
     const handleError = (error) => {
       console.log("Connection error:", error.message);
       setStatus("Connection Failed");
+      setJoined(false);
     };
 
     // Receive messages
     const handleReceiveMessage = (data) => {
-      setMessages((previousMessages) => [...previousMessages, data]);
+      setMessages((previous) => [...previous, data]);
+    };
+
+    // Receive online users
+    const handleOnlineUsers = (users) => {
+      setOnlineUsers(users);
+    };
+
+    // Receive notifications
+    const handleNotification = (data) => {
+      setMessages((previous) => [
+        ...previous,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          system: true,
+          text: data.text,
+        },
+      ]);
+    };
+
+    // Confirm joining
+    const handleJoinSuccess = () => {
+      setJoined(true);
     };
 
     // Register event listeners
@@ -40,8 +65,11 @@ function App() {
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleError);
     socket.on("receive_message", handleReceiveMessage);
+    socket.on("online_users", handleOnlineUsers);
+    socket.on("user_notification", handleNotification);
+    socket.on("join_success", handleJoinSuccess);
 
-    // Connect to server
+    // Connect
     socket.connect();
 
     // Cleanup
@@ -50,16 +78,36 @@ function App() {
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleError);
       socket.off("receive_message", handleReceiveMessage);
+      socket.off("online_users", handleOnlineUsers);
+      socket.off("user_notification", handleNotification);
+      socket.off("join_success", handleJoinSuccess);
 
       socket.disconnect();
     };
   }, []);
 
+  // Join chat
+  const joinChat = (e) => {
+    e.preventDefault();
+
+    if (!username.trim()) {
+      alert("Please enter your username");
+      return;
+    }
+
+    if (!socket.connected) {
+      alert("Server is not connected!");
+      return;
+    }
+
+    socket.emit("join_chat", username.trim());
+  };
+
   // Send message
   const sendMessage = (e) => {
     e.preventDefault();
 
-    if (!username.trim() || !message.trim()) {
+    if (!message.trim() || !joined) {
       return;
     }
 
@@ -69,7 +117,6 @@ function App() {
     }
 
     socket.emit("send_message", {
-      username: username.trim(),
       text: message.trim(),
     });
 
@@ -89,9 +136,9 @@ function App() {
         </span>
       </div>
 
-      {/* Username */}
+      {/* Username Section */}
 
-      <div className="username-section">
+      <form className="username-section" onSubmit={joinChat}>
         <label>Enter Username</label>
 
         <input
@@ -100,7 +147,28 @@ function App() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           maxLength="20"
+          disabled={joined}
         />
+
+        <button type="submit" disabled={joined || status !== "Connected"}>
+          {joined ? "Joined" : "Join Chat"}
+        </button>
+      </form>
+
+      {/* Online Users */}
+
+      <div className="online-users">
+        <h3>Online Users ({onlineUsers.length})</h3>
+
+        {onlineUsers.length === 0 ? (
+          <p>No users online</p>
+        ) : (
+          onlineUsers.map((user, index) => (
+            <span className="user-item" key={index}>
+              🟢 {user}
+            </span>
+          ))
+        )}
       </div>
 
       {/* Chat Messages */}
@@ -112,12 +180,21 @@ function App() {
           </p>
         ) : (
           messages.map((msg) => (
-            <div className="message" key={msg.id}>
-              <strong>{msg.username}</strong>
+            <div
+              className={msg.system ? "system-message" : "message"}
+              key={msg.id}
+            >
+              {msg.system ? (
+                <p>{msg.text}</p>
+              ) : (
+                <>
+                  <strong>{msg.username}</strong>
 
-              <p>{msg.text}</p>
+                  <p>{msg.text}</p>
 
-              <small>{msg.time}</small>
+                  <small>{msg.time}</small>
+                </>
+              )}
             </div>
           ))
         )}
@@ -128,13 +205,14 @@ function App() {
       <form className="message-form" onSubmit={sendMessage}>
         <input
           type="text"
-          placeholder="Type your message..."
+          placeholder={joined ? "Type your message..." : "Join the chat first"}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           maxLength="500"
+          disabled={!joined}
         />
 
-        <button type="submit" disabled={status !== "Connected"}>
+        <button type="submit" disabled={!joined || status !== "Connected"}>
           Send
         </button>
       </form>
