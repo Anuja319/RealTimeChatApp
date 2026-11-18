@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import socket from "./socket";
 import "./App.css";
 
@@ -15,6 +15,10 @@ function App() {
 
   const [onlineUsers, setOnlineUsers] = useState([]);
 
+  // Reference for automatic scrolling
+  const messagesEndRef = useRef(null);
+
+  // Socket connection and event listeners
   useEffect(() => {
     const handleConnect = () => {
       console.log("Connected:", socket.id);
@@ -60,7 +64,7 @@ function App() {
       setJoined(true);
     };
 
-    // Register event listeners
+    // Register listeners
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleError);
@@ -69,7 +73,6 @@ function App() {
     socket.on("user_notification", handleNotification);
     socket.on("join_success", handleJoinSuccess);
 
-    // Connect
     socket.connect();
 
     // Cleanup
@@ -85,6 +88,13 @@ function App() {
       socket.disconnect();
     };
   }, []);
+
+  // Automatically scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
 
   // Join chat
   const joinChat = (e) => {
@@ -125,80 +135,105 @@ function App() {
 
   return (
     <div className="chat-container">
-      <h1>Real-Time Chat Application</h1>
+      <header className="chat-header">
+        <h1>Real-Time Chat Application</h1>
 
-      {/* Connection Status */}
+        <div className="connection-status">
+          <span
+            className={
+              status === "Connected"
+                ? "status-dot online-dot"
+                : "status-dot offline-dot"
+            }
+          ></span>
 
-      <div className="connection-status">
-        Status:
-        <span className={status === "Connected" ? "online" : "offline"}>
           {status}
-        </span>
-      </div>
+        </div>
+      </header>
 
       {/* Username Section */}
 
       <form className="username-section" onSubmit={joinChat}>
         <label>Enter Username</label>
 
-        <input
-          type="text"
-          placeholder="Enter your name"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          maxLength="20"
-          disabled={joined}
-        />
+        <div className="username-input">
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            maxLength="20"
+            disabled={joined}
+          />
 
-        <button type="submit" disabled={joined || status !== "Connected"}>
-          {joined ? "Joined" : "Join Chat"}
-        </button>
+          <button type="submit" disabled={joined || status !== "Connected"}>
+            {joined ? "Joined" : "Join Chat"}
+          </button>
+        </div>
       </form>
 
       {/* Online Users */}
 
-      <div className="online-users">
+      <section className="online-users">
         <h3>Online Users ({onlineUsers.length})</h3>
 
-        {onlineUsers.length === 0 ? (
-          <p>No users online</p>
-        ) : (
-          onlineUsers.map((user, index) => (
-            <span className="user-item" key={index}>
-              🟢 {user}
-            </span>
-          ))
-        )}
-      </div>
+        <div className="users-list">
+          {onlineUsers.length === 0 ? (
+            <p>No users online</p>
+          ) : (
+            onlineUsers.map((user, index) => (
+              <span className="user-item" key={index}>
+                🟢 {user}
+              </span>
+            ))
+          )}
+        </div>
+      </section>
 
       {/* Chat Messages */}
 
-      <div className="chat-box">
+      <section className="chat-box">
         {messages.length === 0 ? (
           <p className="empty-message">
             No messages yet. Start a conversation!
           </p>
         ) : (
-          messages.map((msg) => (
-            <div
-              className={msg.system ? "system-message" : "message"}
-              key={msg.id}
-            >
-              {msg.system ? (
-                <p>{msg.text}</p>
-              ) : (
-                <>
+          messages.map((msg) => {
+            if (msg.system) {
+              return (
+                <div className="system-message" key={msg.id}>
+                  {msg.text}
+                </div>
+              );
+            }
+
+            const isOwnMessage = msg.username === username;
+
+            return (
+              <div
+                className={`message-row ${
+                  isOwnMessage ? "sent-row" : "received-row"
+                }`}
+                key={msg.id}
+              >
+                <div
+                  className={`message-bubble ${
+                    isOwnMessage ? "sent-message" : "received-message"
+                  }`}
+                >
                   <strong>{msg.username}</strong>
 
                   <p>{msg.text}</p>
 
                   <small>{msg.time}</small>
-                </>
-              )}
-            </div>
-          ))
+                </div>
+              </div>
+            );
+          })
         )}
-      </div>
+
+        <div ref={messagesEndRef}></div>
+      </section>
 
       {/* Message Input */}
 
